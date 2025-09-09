@@ -2,35 +2,45 @@ Classify irrigated vs. non-irrigated cropland using Google’s AlphaEarth embedd
 
 ### Setup
 #### pytorch-irr-model
+```bash
 git clone https://github.com/tcreed880/pytorch_irr_model.git
 cd pytorch_irr_model
 
-#### install deps
+# install deps
 poetry install
 
-#### set Python version if prompted
+# set Python version if prompted
 poetry env use python3.11
 
-#### verify it runs
+# verify it runs
 poetry run python -c "import torch, pytorch_lightning as pl; print('ok')"
-
+```
 ### Get data from Google Earth Engine
+```bash
 poetry run python -c "import ee; ee.Authenticate()"
-#### Follow the link, paste the code
-#### Run this exporter. There is a version that generates a balanced 10k sample CSV per year, or generates data for all cropland pixels, grouped by county. Script currently set to generate data from Washington state.
+# Follow the link, paste the code
+```
+
+Run this exporter. There is a version that generates a balanced 10k sample CSV per year, or generates data for all cropland pixels, grouped by county. Script currently set to generate data from Washington state.
+
+```bash
 poetry run python irr/cli/gee_python_api.py
-
-#### balanced per-class sample (default)
+```
+balanced per-class sample (default)
+```bash
 poetry run python irr/cli/gee_python_api.py --mode balanced --years 2019 2020 2021
-#### OR
-#### all cropland pixels, chunked per county (large export)
+```
+OR
+all cropland pixels, chunked per county (large export)
+```bash
 poetry run python irr/cli/gee_python_api.py --mode all --years 2019 2020 2021
-
-#### Exports go a Google Drive folder configured in the script. Download CSVs locally into raw_data/
-#### Columns should include FEATURES (64 AlphaEarth embeddings) and LABEL_COL (0 or 1, based on IrrMapper v1.2)
+```
+Exports go a Google Drive folder configured in the script. Download CSVs locally into raw_data/
+Columns should include FEATURES (64 AlphaEarth embeddings) and LABEL_COL (0 or 1, based on IrrMapper v1.2)
 
 ### Training
 #### K-fold cross-validation method:
+```bash
 poetry run python -m irr.cli.kfold \
   --data-glob "raw_data/*.csv" \
   --k 5 \
@@ -41,8 +51,10 @@ poetry run python -m irr.cli.kfold \
   --max-epochs 40 \
   --hidden 256 --depth 2 --dropout 0.10 --act silu \
   --lr 1e-3 --weight-decay 1e-4
+```
 
 #### Single train/val split method
+```bash
 poetry run python -m irr.cli.train_tiny_head \
   --data-glob "raw_data/*.csv" \
   --batch-size 512 \
@@ -52,7 +64,7 @@ poetry run python -m irr.cli.train_tiny_head \
   --patience 10 \
   --hidden 256 --depth 2 --dropout 0.10 --act silu \
   --lr 1e-3 --weight-decay 1e-4
-
+```
 
 ### Model description
 irr/models/tiny_head.py
@@ -68,13 +80,17 @@ Inputs: for AlphaEarth unit-norm embeddings, the model’s standardizer is set t
 TensorBoard events: outputs/logs/tiny_head_tb/version_*
 CSV logs: outputs/logs/tiny_head/version_*
 Start Tensorboard:
+```bash
 poetry run tensorboard --logdir outputs/logs/tiny_head_tb --port 6006
+```
 open http://localhost:6006
 
 ### Prediction on new data using best checkpoint model
+```bash
 poetry run python -m irr.cli.predict \
   --ckpt "outputs/logs/tiny_head/version_20/checkpoints/best.ckpt" \
   --data-glob "new_data/*.csv" \
   --out-csv "outputs/predictions/new_data_with_preds.csv" \
   --batch-size 4096 \
   --threshold 0.5
+```
