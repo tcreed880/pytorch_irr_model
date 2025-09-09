@@ -105,7 +105,8 @@ class TinyHead(pl.LightningModule):
     def on_train_epoch_end(self):
         self.log("train_auroc", self.train_auroc.compute(), prog_bar=True)
         self.log("train_auprc", self.train_auprc.compute(), prog_bar=True)
-        self.train_auroc.reset(); self.train_auprc.reset()
+        self.train_auroc.reset()
+        self.train_auprc.reset()
 
     def validation_step(self, batch, _):
         loss, logits, y = self._step(batch, "val")
@@ -118,21 +119,25 @@ class TinyHead(pl.LightningModule):
     def on_validation_epoch_end(self):
         self.log("val_auroc", self.val_auroc.compute(), prog_bar=True)
         self.log("val_auprc", self.val_auprc.compute(), prog_bar=True)
-        self.val_auroc.reset(); self.val_auprc.reset()
+        self.val_auroc.reset()
+        self.val_auprc.reset()
         # Compute confusion matrix (2x2 tensor: [[TN, FP], [FN, TP]])
         cm = self.val_cm.compute().detach().cpu().numpy()
         self.val_cm.reset()
 
         # Make a small figure
         fig, ax = plt.subplots(figsize=(3,3), dpi=120)
-        im = ax.imshow(cm, interpolation="nearest")
+        ax.imshow(cm, interpolation="nearest")
         ax.set_title("Val Confusion Matrix @ thr=0.5")
-        ax.set_xticks([0,1]); ax.set_yticks([0,1])
-        ax.set_xticklabels(["Pred 0","Pred 1"]); ax.set_yticklabels(["True 0","True 1"])
+        ax.set_xticks([0,1])
+        ax.set_yticks([0,1])
+        ax.set_xticklabels(["Pred 0","Pred 1"])
+        ax.set_yticklabels(["True 0","True 1"])
         for i in range(2):
             for j in range(2):
-                ax.text(j, i, int(cm[i, j]), ha="center", va="center", color="w")
-        ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
+                ax.text(j, i, str(int(cm[i, j])), ha="center", va="center", color="w")
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
         fig.tight_layout()
 
         # Log to TensorBoard (works since TB logger is first in your list)
@@ -159,7 +164,8 @@ class TinyHead(pl.LightningModule):
         )
         # Cosine over the full training; Lightning will set T_max to max_epochs
         # If you want exact steps: use CosineAnnealingLR with T_max=self.trainer.max_epochs
-        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=self.trainer.max_epochs)
+        t_max = self.trainer.max_epochs if self.trainer.max_epochs is not None else 100
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=t_max)
         return {
             "optimizer": opt,
             "lr_scheduler": {

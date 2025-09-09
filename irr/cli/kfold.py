@@ -1,6 +1,5 @@
 # irr/cli/kfold.py
 import argparse
-from dataclasses import asdict
 from irr.training.cv import run_kfold
 from irr.training.config import RunCfg
 from irr.models.tiny_head import TinyCfg

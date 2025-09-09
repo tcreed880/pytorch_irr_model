@@ -1,5 +1,4 @@
 # irr/training/train.py
-from pathlib import Path
 import dataclasses
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -54,7 +53,7 @@ def run_train(cfg: RunCfg, datamodule: IrrDataModule | None = None) -> dict:
 
     callbacks = [
         EarlyStopping(monitor=getattr(cfg, "monitor", "val_auprc"), mode="max",
-                      patience=getattr(cfg, "patience", 10), min_delta=getattr(cfg, "min_delta", 1e-4)),
+                      patience=getattr(cfg, "patience", 10), min_delta=getattr(cfg, "min_delta", 1e-5)),
         ModelCheckpoint(monitor=getattr(cfg, "monitor", "val_auprc"), mode="max",
                         save_top_k=1, filename="best")
     ]
@@ -71,3 +70,4 @@ def run_train(cfg: RunCfg, datamodule: IrrDataModule | None = None) -> dict:
     trainer.fit(model, datamodule=dm)
 
     return {"log_dir": csv_logger.log_dir}  # or tb_logger.log_dir
+

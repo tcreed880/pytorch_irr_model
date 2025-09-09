@@ -25,5 +25,6 @@ def stratified_split_idx(y: np.ndarray, val_ratio: float, seed: int = 88):
     val_idx = np.concatenate([i0[:n0_val], i1[:n1_val]])
     train_idx = np.concatenate([i0[n0_val:], i1[n1_val:]])
 
-    rng.shuffle(train_idx); rng.shuffle(val_idx)
+    rng.shuffle(train_idx)
+    rng.shuffle(val_idx)
     return train_idx, val_idx

@@ -9,6 +9,6 @@ class RunCfg:
     seed: int = 88
     monitor: str = "val_auprc"
     patience: int = 10
-    max_epochs: int = 200
+    max_epochs: int = 300
     # composed model config
     model: TinyCfg = field(default_factory=TinyCfg)

@@ -1,11 +1,14 @@
+# pyright: reportPrivateImportUsage=false
 # ee_export_wa_irrmapper_alphaearth.py
 import ee
+import argparse
 
 
 PROJECT_ID = "water-model"
 
-ee.Authenticate()     # run once and follow the link
-ee.Initialize(project=PROJECT_ID)
+def main():
+    ee.Authenticate()     # run once and follow the link
+    ee.Initialize(project=PROJECT_ID)
 
 
 # set parameters
@@ -174,10 +177,9 @@ def export_all_cropland_year_by_county(year: int):
             fileFormat="CSV"
         )
         task.start()
-        print(f"Started county export for {year}: {name} ({fips}), Monitor in https://code.earthengine.google.com/ → Tasks."")
+        print(f"Started county export for {year}: {name} ({fips}), Monitor in https://code.earthengine.google.com/ → Tasks.")
 
 
-def main():
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["balanced", "all"], default="balanced",
                    help="'balanced' = your current stratified sample; 'all' = every cropland pixel (per county).")
@@ -187,7 +189,7 @@ def main():
 
     for y in args.years:
         if args.mode == "balanced":
-            export_one_year_balanced(y)
+            export_one_year(y)
         else:
             export_all_cropland_year_by_county(y)
 

@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from irr.models.tiny_head import TinyCfg
 from irr.training.train import RunCfg, run_train
 import argparse
