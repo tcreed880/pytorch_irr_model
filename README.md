@@ -64,7 +64,6 @@ Optimizer/scheduler: AdamW + CosineAnnealingLR (configured in configure_optimize
 
 Inputs: for AlphaEarth unit-norm embeddings, the model’s standardizer is set to a no-op (mean=0, std=1) in run_train.
 
-
 ### TensorBoard logging
 TensorBoard events: outputs/logs/tiny_head_tb/version_*
 CSV logs: outputs/logs/tiny_head/version_*
@@ -72,5 +71,10 @@ Start Tensorboard:
 poetry run tensorboard --logdir outputs/logs/tiny_head_tb --port 6006
 open http://localhost:6006
 
-
-
+### Prediction on new data using best checkpoint model
+poetry run python -m irr.cli.predict \
+  --ckpt "outputs/logs/tiny_head/version_20/checkpoints/best.ckpt" \
+  --data-glob "new_data/*.csv" \
+  --out-csv "outputs/predictions/new_data_with_preds.csv" \
+  --batch-size 4096 \
+  --threshold 0.5
