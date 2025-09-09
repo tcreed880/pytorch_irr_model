@@ -1,0 +1,84 @@
+# --- OS / editor crap ---
+.DS_Store
+.AppleDouble
+._*
+Thumbs.db
+*.swp
+*.swo
+*.orig
+*.bak
+.vscode/
+.idea/
+
+# --- Python build / bytecode ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.build/
+build/
+dist/
+*.egg-info/
+.eggs/
+.python-version
+
+# --- Poetry / venv ---
+.venv/
+
+# --- Testing / coverage / lint ---
+.pytest_cache/
+.coverage*
+htmlcov/
+.cache/
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.pylint.d/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+*.ipynb_checkpoint
+
+# --- Logs ---
+*.log
+
+# --- Secrets / env files (keep these local) ---
+.env
+.env.*
+*.secret
+secrets.*.json
+credentials.json
+
+# --- Data you do NOT want in git ---
+raw_data/             # your big/raw inputs live here; keep them out of git
+# data/               # uncomment if you also want to ignore ALL data files
+# datasets/           # optional, if you have an external datasets dir
+
+# --- Training outputs / artifacts ---
+outputs/              # checkpoints, metrics, predictions, plots, etc.
+lightning_logs/
+tb_logs/
+tensorboard/
+.tensorboard-info/
+wandb/
+mlruns/
+
+# if you want to keep a placeholder in outputs/, add a tracked file:
+# !outputs/.gitkeep
+
+# --- Model binaries (often large) ---
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# --- Earth Engine / temp scratch (adjust to your layout) ---
+gee_tmp/
+# .config/earthengine/   # only if you accidentally mirror user-level config into repo
+
+# --- Parquet/feather/tmp (optional if you generate these locally) ---
+# *.parquet
+# *.feather
+# *.arrow
+# *.h5

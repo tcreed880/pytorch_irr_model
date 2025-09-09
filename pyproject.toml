@@ -1,0 +1,56 @@
+[project]
+name = "pytorch-irr-model-modular"
+version = "0.1.0"
+packages = [{ include = "irr" }]
+description = "Multi Layer Perceptron with training/eval utilities for AlphaEarth/IrrMapper"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+authors = [{ name = "Tim Creed", email = "tim.creed880@gmail.com" }]
+
+# Core deps used by the package at runtime (train/eval)
+dependencies = [
+  "pandas (>=2.3.2,<3.0.0)",
+  "numpy (>=2.3.2,<3.0.0)",
+  "scikit-learn (>=1.7.1,<2.0.0)",
+  "pytorch-lightning (>=2.5.3,<3.0.0)",
+  "torch (>=2.8.0,<3.0.0)",
+  "torchmetrics (>=1.8.1,<2.0.0)",
+  "tensorboard (>=2.20.0,<3.0.0)",
+  "matplotlib (>=3.10.6,<4.0.0)",
+]
+
+# Optional “extras” that users can install with: poetry install --extras "viz gee"
+[project.optional-dependencies]
+viz = [
+  "matplotlib (>=3.10.5,<4.0.0)",
+  "plotly (>=6.3.0,<7.0.0)",
+]
+gee = [
+  "earthengine-api (>=1.6.4,<2.0.0)"
+]
+
+[tool.poetry.scripts]
+train-tiny-head = "irr.cli.train_tiny_head:main"
+kfold           = "irr.cli.kfold:main"
+gee-export       = "irr.cli.gee_python_api:main"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{include = "irr"}]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
+# (optional) linters/formatters:
+# ruff = "^0.6.9"
+# black = "^24.10.0"
+
+# Pytest defaults (nice CI/UX)
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --cov=irr --cov-report=term-missing"
+testpaths = ["tests"]
