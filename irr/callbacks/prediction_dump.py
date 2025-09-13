@@ -10,7 +10,9 @@ class PredictionDumpCallback(pl.Callback):
     def __init__(self, split="val", out_name="val_predictions.csv", include_logits=False):
         assert split in {"val","test"}
         self.split, self.out_name, self.include_logits = split, out_name, include_logits
-        self._probs = []; self._targets = []; self._logits = []
+        self._probs = []
+        self._targets = [] 
+        self._logits = []
 
     def on_validation_epoch_start(self, trainer, pl_module):
         if self.split=="val": self._reset()

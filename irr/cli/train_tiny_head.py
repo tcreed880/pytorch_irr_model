@@ -11,6 +11,8 @@ def main():
     p.add_argument("--seed", type=int, default=88)
     p.add_argument("--monitor", type=str, default="val_auprc")
     p.add_argument("--patience", type=int, default=10)
+    p.add_argument("--max-epochs", type=int, default=40)   
+
     # model args
     p.add_argument("--hidden", type=int, default=TinyCfg.hidden)
     p.add_argument("--depth", type=int, default=TinyCfg.depth)
@@ -27,7 +29,7 @@ def main():
     )
     run_cfg = RunCfg(
         data_glob=a.data_glob, batch_size=a.batch_size, val_ratio=a.val_ratio,
-        seed=a.seed, monitor=a.monitor, patience=a.patience, model=model_cfg
+        seed=a.seed, monitor=a.monitor, patience=a.patience, max_epochs=a.max_epochs, model=model_cfg
     )
 
     logdir = run_train(run_cfg)

@@ -39,6 +39,7 @@ class MLPHead(nn.Module):
             layers.append(ResidualMLPBlock(hidden, p=p, act=act))
         layers.append(nn.Linear(hidden, 1))
         self.net = nn.Sequential(*layers)
+        self.out = self.net[-1] 
     def forward(self, x):  # (B, in_dim) -> (B,)
         return self.net(x).squeeze(1)
 
@@ -52,6 +53,7 @@ class TinyCfg:
     act: str = "silu"
     lr: float = 1e-3
     weight_decay: float = 1e-4
+    standardize: bool = False
 
 
 class TinyHead(pl.LightningModule):
@@ -60,7 +62,7 @@ class TinyHead(pl.LightningModule):
         self.save_hyperparameters(ignore=["pos_weight"])
         self.cfg = cfg
         self.net = MLPHead(
-            in_dim=cfg.in_dim,
+            in_dim=cfg.in_dim, 
             hidden=cfg.hidden,
             depth=cfg.depth,
             p=cfg.dropout,
@@ -85,7 +87,8 @@ class TinyHead(pl.LightningModule):
         self.x_std.copy_(std)
 
     def forward(self, x):
-        x = (x - self.x_mean) / self.x_std
+        if self.cfg.standardize:
+            x = (x - self.x_mean) / self.x_std
         return self.net(x)
 
     # ----- train/val -----
@@ -173,3 +176,10 @@ class TinyHead(pl.LightningModule):
                 "interval": "epoch",
             },
         }
+    @property
+    def final_linear(self) -> nn.Linear:
+        layer = getattr(self.net, "out", None)
+        if layer is None:
+            layer = self.net.net[-1]      # fallback
+        assert isinstance(layer, nn.Linear)
+        return layer

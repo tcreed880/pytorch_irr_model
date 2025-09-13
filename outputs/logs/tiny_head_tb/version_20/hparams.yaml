@@ -1,0 +1,23 @@
+batch_size: 512
+cfg: !!python/object:irr.models.tiny_head.TinyCfg
+  act: silu
+  depth: 2
+  dropout: 0.1
+  hidden: 256
+  in_dim: 64
+  lr: 0.001
+  weight_decay: 0.0001
+data_glob: raw_data/*.csv
+max_epochs: 300
+model:
+  act: silu
+  depth: 2
+  dropout: 0.1
+  hidden: 256
+  in_dim: 64
+  lr: 0.001
+  weight_decay: 0.0001
+monitor: val_auprc
+patience: 10
+seed: 88
+val_ratio: 0.2
