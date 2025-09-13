@@ -57,12 +57,15 @@ raw_data/             # your big/raw inputs live here; keep them out of git
 
 # --- Training outputs / artifacts ---
 outputs/              # checkpoints, metrics, predictions, plots, etc.
+notebooks/predictions/*.csv
 lightning_logs/
 tb_logs/
 tensorboard/
 .tensorboard-info/
 wandb/
 mlruns/
+
+
 
 # if you want to keep a placeholder in outputs/, add a tracked file:
 # !outputs/.gitkeep
