@@ -1,30 +1,26 @@
-# irr/data/splits.py
-# module for creating training/validation splits for binary classification
+# irr/data/io.py
+# data ingestion utility that loads multiple CSVs and concatenates them
+# includes featur and label checks, drops NaNs, ensures label is binary {0,1}
 
+import glob
 import numpy as np
+import pandas as pd
+from irr.constants import FEATURES, LABEL_COL
 
-# imports only the split function when entire module is imported
-__all__ = ["stratified_split_idx"]
 
-# returns (train_idx, val_idx) with class-stratified split for binary labels y in {0,1}
-def stratified_split_idx(y: np.ndarray, val_ratio: float, seed: int = 88):
-    y = np.asarray(y).astype(int)
-    assert set(np.unique(y)) <= {0, 1}, "y must be binary {0,1}"
 
-    rng = np.random.default_rng(seed)
-    idx = np.arange(len(y))
-
-    i0 = idx[y == 0].copy()
-    i1 = idx[y == 1].copy()
-    rng.shuffle(i0)
-    rng.shuffle(i1)
-
-    n0_val = int(len(i0) * val_ratio)
-    n1_val = int(len(i1) * val_ratio)
-
-    val_idx = np.concatenate([i0[:n0_val], i1[:n1_val]])
-    train_idx = np.concatenate([i0[n0_val:], i1[n1_val:]])
-
-    rng.shuffle(train_idx)
-    rng.shuffle(val_idx)
-    return train_idx, val_idx
+def load_csvs(data_glob: str) -> pd.DataFrame:
+    paths = sorted(glob.glob(data_glob))
+    if not paths:
+        raise FileNotFoundError(f"No CSV files matched: {data_glob}")
+    dfs = []
+    for p in paths:
+        df = pd.read_csv(p)
+        missing = [c for c in FEATURES + [LABEL_COL] if c not in df.columns]
+        if missing:
+            raise ValueError(f"{p} missing columns: {missing}")
+        dfs.append(df)
+    full = pd.concat(dfs, ignore_index=True)
+    full = full.dropna(subset=FEATURES + [LABEL_COL])
+    full[LABEL_COL] = (full[LABEL_COL].astype(np.int64) > 0).astype(np.int64)
+    return full

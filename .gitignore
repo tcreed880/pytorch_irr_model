@@ -14,6 +14,7 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyc
 *.pyd
 *.so
 .build/
@@ -64,7 +65,8 @@ tensorboard/
 .tensorboard-info/
 wandb/
 mlruns/
-
+optuna.db
+*.csv
 
 
 # if you want to keep a placeholder in outputs/, add a tracked file:

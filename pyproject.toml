@@ -17,7 +17,8 @@ dependencies = [
   "torchmetrics (>=1.8.1,<2.0.0)",
   "tensorboard (>=2.20.0,<3.0.0)",
   "matplotlib (>=3.10.6,<4.0.0)",
-  "earthengine-api (>=1.6.4,<2.0.0)"
+  "earthengine-api (>=1.6.4,<2.0.0)",
+  "optuna (>=4.5.0,<5.0.0)"
 ]
 
 # Optional “extras” that users can install with: poetry install --extras "viz gee"

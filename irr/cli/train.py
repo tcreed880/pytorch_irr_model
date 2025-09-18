@@ -1,26 +1,31 @@
-# irr/cli/kfold.py
+# irr/cli/train.py
 from __future__ import annotations
 
 import argparse
-from irr.training.cv import run_kfold
+from irr.training.train import run_train
 from irr.configs import TrainConfig
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="K-fold CV for IrrMLPClassifier.")
+    p = argparse.ArgumentParser(description="Train MLP classifier on AE/IRR CSV data.")
 
-    # Data
+    # Data / splitting
     p.add_argument("--data-glob", required=True, help='Glob for CSVs, e.g. "raw_data/*.csv"')
-    p.add_argument("--k", type=int, default=5, help="Number of folds")
     p.add_argument("--batch-size", type=int, default=512)
+    p.add_argument("--val-ratio", type=float, default=0.2)
     p.add_argument("--seed", type=int, default=88)
     p.add_argument(
-        "--include-states", nargs="*", default=None,
-        help="Filter to these state codes (e.g., --include-states MT OR ID)."
+        "--include-states",
+        nargs="*",
+        default=None,
+        help='Filter to these state codes (e.g., --include-states MT OR ID). Omit to use all.',
     )
     p.add_argument(
-        "--group-col", type=str, default="h3_r7",
-        help="Grouping for folds: 'county_fips', '.geo', or 'h3_r{res}'. Use 'none' for label-stratified."
+        "--group-col",
+        type=str,
+        default="h3_r7",
+        help="Grouping for train/val split: 'county_fips', '.geo', or 'h3_r{res}'. "
+             "Use 'none' for label-stratified split.",
     )
 
     # Training control
@@ -29,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--min-delta", type=float, default=1e-5)
     p.add_argument("--max-epochs", type=int, default=40)
 
-    # Model hyperparams (train.py/cv.py will build ModelConfig from these)
+    # Model hyperparams (convenience fields; train.py will build ModelConfig)
     p.add_argument("--hidden", type=int, default=256)
     p.add_argument("--depth", type=int, default=2)
     p.add_argument("--dropout", type=float, default=0.10)
@@ -43,12 +48,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     a = parse_args()
+
     group_col = None if a.group_col and a.group_col.lower() == "none" else a.group_col
 
     cfg = TrainConfig(
         data_glob=a.data_glob,
         batch_size=a.batch_size,
-        # val_ratio not used in K-fold; cv runner will handle splits
+        val_ratio=a.val_ratio,
         seed=a.seed,
         include_states=a.include_states,
         group_col=group_col,
@@ -66,11 +72,24 @@ def main() -> None:
         standardize=a.standardize,
     )
 
-    folds_df, summary = run_kfold(cfg, k=a.k)
-    print("\n=== K-fold results ===")
-    print(folds_df)
-    print("\nSummary:", summary)
+    info = run_train(cfg)
+    print(f"[INFO] Finished. Artifacts in: {info['log_dir']}")
 
 
 if __name__ == "__main__":
     main()
+
+
+"""
+example usage:
+poetry run python -m irr.cli.train \
+  --data-glob "raw_data/*cropland*.csv" \
+  --include-states MT OR ID \
+  --group-col h3_r7 \
+  --batch-size 1024 \
+  --monitor val_auprc \
+  --patience 12 \
+  --max-epochs 80 \
+  --hidden 512 --depth 2 --dropout 0.02 --act relu \
+  --lr 3.2e-4 --weight-decay 3.7e-5
+"""
