@@ -15,19 +15,7 @@ from irr.constants import FEATURES, LABEL_COL
 from irr.data.io import load_csvs
 from irr.data.splits import stratified_split_idx  # keep your existing helper
 
-# Optional deps: sklearn only for group-aware split
-try:
-    from sklearn.model_selection import GroupShuffleSplit  # noqa: F401
-    _HAS_SK = True
-except Exception:
-    _HAS_SK = False
-
-# Optional deps: h3 for spatial blocking via hexes
-try:
-    import h3  # pip install h3
-    _HAS_H3 = True
-except Exception:
-    _HAS_H3 = False
+from h3 import latlng_to_cell 
 
 
 class IrrDataModule(pl.LightningDataModule):
@@ -99,12 +87,11 @@ class IrrDataModule(pl.LightningDataModule):
 
     @staticmethod
     def _geo_to_h3(series: pd.Series, res: int) -> pd.Series:
-        if not _HAS_H3:
-            raise ImportError("To use H3 grouping, install 'h3' (pip install h3).")
         def to_h3(s: str) -> str:
-            c = json.loads(s)["coordinates"]
+            c = json.loads(s)["coordinates"]  # GeoJSON order: [lon, lat]
             lon, lat = float(c[0]), float(c[1])
-            return h3.geo_to_h3(lat, lon, res)
+            return latlng_to_cell(lat, lon, res)  
+
         return series.astype(str).apply(to_h3)
 
     def _make_groups(self, df: pd.DataFrame) -> Optional[np.ndarray]:
