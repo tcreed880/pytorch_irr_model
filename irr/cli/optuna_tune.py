@@ -10,10 +10,26 @@ import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-
+from pytorch_lightning.callbacks import Callback
 from irr.data.datamodule import IrrDataModule
 from irr.models.mlp_classifier import IrrMLPClassifier, ModelConfig
 
+class LightningOptunaPruner(Callback):
+    def __init__(self, trial: optuna.Trial, monitor: str):
+        super().__init__()
+        self.trial = trial
+        self.monitor = monitor
+
+    def on_validation_end(self, trainer, pl_module) -> None:
+        metric = trainer.callback_metrics.get(self.monitor)
+        if metric is None:
+            return
+        # metric is a torch tensor; convert to float
+        value = float(metric.detach().cpu().item())
+        step = trainer.current_epoch
+        self.trial.report(value, step)
+        if self.trial.should_prune():
+            raise optuna.exceptions.TrialPruned()    
 
 # ---------------- device/precision ----------------
 
@@ -44,7 +60,7 @@ def make_datamodule(
         include_states=include_states,
     )
     dm.setup(stage="fit")
-    dm.assert_no_group_leakage()  # checks the configured group_col
+    dm.assert_no_group_leakage()
     return dm
 
 
@@ -72,7 +88,7 @@ def build_model(trial: optuna.Trial, in_dim: int, pos_weight: torch.Tensor | Non
         standardize=standardize,
     )
     model = IrrMLPClassifier(cfg, pos_weight=pos_weight)
-    # If embeddings are unit-norm, keep standardizer a no-op:
+    # keep standardizer no-op unless you flip --standardize
     with torch.no_grad():
         model.x_mean.zero_()
         model.x_std.fill_(1.0)
@@ -81,10 +97,21 @@ def build_model(trial: optuna.Trial, in_dim: int, pos_weight: torch.Tensor | Non
 
 # ---------------- objective ----------------
 
-def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: str) -> float:
-    seed_everything(args.seed)
+def _monitor_and_mode(objective: str) -> tuple[str, str]:
+    """Return (monitor_key, mode) given objective name."""
+    obj = objective.lower()
+    if obj == "auprc":
+        return "val_auprc", "max"
+    if obj == "bce":
+        return "val_bce", "min"
+    if obj == "bce_cal":
+        return "val_bce_calibrated", "min"
+    raise ValueError(f"Unknown objective: {objective}")
 
-    batch_size = trial.suggest_categorical("batch_size", [64, 128, 256, 512, 1024])
+def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: str) -> float:
+    seed_everything(args.seed, workers=True)
+
+    batch_size = trial.suggest_categorical("batch_size", [256, 512, 1024, 2048])
 
     dm = make_datamodule(
         data_glob=args.data_glob,
@@ -98,13 +125,16 @@ def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: s
     pos_weight, pi = compute_pos_weight_from_dm(dm)
     model = build_model(trial, in_dim=dm.X_train.size(1), pos_weight=pos_weight, standardize=args.standardize)
 
-    # Bias init to prior improves early calibration
+    # prior-based bias init
     if 0.0 < pi < 1.0:
         with torch.no_grad():
-            model.final_linear.bias.fill_(math.log(pi / (1.0 - pi)))
+            model.final_linear.bias.copy_(torch.tensor(math.log(pi / (1.0 - pi)), dtype=model.final_linear.bias.dtype))
 
-    es = EarlyStopping(monitor="val_auprc", mode="max", patience=args.patience, min_delta=1e-5)
-    ckpt = ModelCheckpoint(monitor="val_auprc", mode="max", save_top_k=1, filename="best")
+    monitor_key, mode = _monitor_and_mode(args.objective)
+    prune_cb = LightningOptunaPruner(trial, monitor=monitor_key)
+
+    es = EarlyStopping(monitor=monitor_key, mode=mode, patience=args.patience, min_delta=1e-5, verbose=False)
+    ckpt = ModelCheckpoint(monitor=monitor_key, mode=mode, save_top_k=1, filename="best", auto_insert_metric_name=False)
     logger = TensorBoardLogger(save_dir=args.log_dir, name=f"{args.study_name}/trial_{trial.number}")
 
     trainer = Trainer(
@@ -112,48 +142,75 @@ def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: s
         accelerator=accel,
         devices="auto",
         precision=prec,
-        gradient_clip_val=1.0,
         deterministic=True,
         logger=logger,
-        callbacks=[es, ckpt],
+        callbacks=[es, ckpt, prune_cb],
         enable_progress_bar=False,
         log_every_n_steps=10,
+        check_val_every_n_epoch=1,
     )
 
     trainer.fit(model, datamodule=dm)
-    val_auprc = trainer.callback_metrics.get("val_auprc")
-    return float(val_auprc.cpu().item()) if val_auprc is not None else float("nan")
+
+    # save useful info on the trial
+    trial.set_user_attr("best_ckpt", ckpt.best_model_path)
+    trial.set_user_attr("log_dir", logger.log_dir)
+
+    metric = trainer.callback_metrics.get(monitor_key)
+    return float(metric.cpu().item()) if metric is not None else float("nan")
 
 
 # ---------------- CLI ----------------
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Optuna hyperparameter tuning for IrrMLPClassifier.")
-    p.add_argument("--data-glob", required=True, help='e.g. "raw_data/*cropland*.csv"')
+    p.add_argument("--data-glob", required=True, help='e.g. "raw_data/*.csv"')
     p.add_argument("--val-ratio", type=float, default=0.2)
     p.add_argument("--seed", type=int, default=88)
     p.add_argument("--max-epochs", type=int, default=40)
     p.add_argument("--patience", type=int, default=7)
     p.add_argument("--n-trials", type=int, default=40)
     p.add_argument("--study-name", type=str, default="mlp_optuna")
-    p.add_argument("--storage", type=str, default=None, help='e.g. "sqlite:///optuna.db" to persist trials')
+    p.add_argument("--storage", type=str, default=None, help='e.g. "sqlite:///outputs/optuna/optuna.db"')
     p.add_argument("--log-dir", type=str, default="outputs/optuna_tb")
 
-    p.add_argument("--group-col", type=str, default="h3_r7",
-                   help="Grouping for train/val split: 'county_fips', '.geo', or 'h3_r{res}'. Use 'none' for s
+    p.add_argument("--group-col", type=str, default="h3_r5",
+                   help="Grouping for train/val split: 'county_fips', '.geo', or 'h3_r{res}'. Use 'none' for stratified.")
+    p.add_argument("--include-states", nargs="*", default=None, help="Subset to these state codes.")
+    p.add_argument("--standardize", action="store_true", help="Apply (x-mean)/std inside the model.")
+    p.add_argument("--objective", type=str, choices=["auprc", "bce", "bce_cal"], default="auprc",
+                   help="Tune for ranking (auprc) or calibration (bce / bce_cal).")
+
+    return p.parse_args()
 
 
-"""
-Usage example:
-poetry run python -m irr.cli.optuna_tune \
-  --data-glob "raw_data/*training*.csv" \
-  --val-ratio 0.2 \
-  --seed 88 \
-  --max-epochs 40 \
-  --patience 7 \
-  --n-trials 50 \
-  --study-name mlp_h3r7_optuna \
-  --storage "sqlite:///optuna.db" \
-  --group-col h3_r7 \
-  --include-states MT OR ID
-"""
+def main() -> None:
+    args = parse_args()
+    accel, prec = pick_accel_and_precision()
+
+    direction = "maximize" if args.objective == "auprc" else "minimize"
+    sampler = optuna.samplers.TPESampler(seed=args.seed, n_startup_trials=10)
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+
+    study = optuna.create_study(
+        direction=direction,
+        study_name=args.study_name,
+        storage=args.storage,
+        load_if_exists=True,
+        sampler=sampler,
+        pruner=pruner,
+    )
+
+    study.optimize(partial(objective, args=args, accel=accel, prec=prec), n_trials=args.n_trials)
+
+    best = study.best_trial
+    print("\n=== BEST TRIAL ===")
+    print("number:", best.number)
+    print("value:", best.value)
+    print("params:", best.params)
+    print("best_ckpt:", best.user_attrs.get("best_ckpt"))
+    print("log_dir:", best.user_attrs.get("log_dir"))
+
+
+if __name__ == "__main__":
+    main()
