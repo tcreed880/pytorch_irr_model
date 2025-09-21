@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-epochs", type=int, default=40)
 
     # Model hyperparams (convenience fields; train.py will build ModelConfig)
-    p.add_argument("--hidden", type=int, default=256)
+    p.add_argument("--hidden", type=int, default=1024)
     p.add_argument("--depth", type=int, default=2)
     p.add_argument("--dropout", type=float, default=0.10)
     p.add_argument("--act", type=str, choices=["relu", "silu", "gelu"], default="silu")

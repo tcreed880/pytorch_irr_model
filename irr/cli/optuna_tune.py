@@ -79,12 +79,14 @@ def compute_pos_weight_from_dm(dm: IrrDataModule) -> tuple[torch.Tensor | None, 
 def build_model(trial: optuna.Trial, in_dim: int, pos_weight: torch.Tensor | None, standardize: bool) -> IrrMLPClassifier:
     cfg = ModelConfig(
         in_dim=in_dim,
-        hidden=trial.suggest_categorical("hidden", [128, 256, 512]),
-        depth=trial.suggest_int("depth", 1, 4),
-        dropout=trial.suggest_float("dropout", 0.0, 0.5),
-        act=trial.suggest_categorical("act", ["silu", "gelu", "relu"]),
-        lr=trial.suggest_float("lr", 3e-5, 3e-3, log=True),
-        weight_decay=trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
+        # removed depth, hidden size, using defaults 2 and 256
+        depth=2,
+        hidden=256,
+        dropout=trial.suggest_float("dropout", 0.01, 0.06),
+        # removed silu and relu
+        act="gelu",
+        lr=trial.suggest_float("lr", 2e-4, 6e-4, log=True),
+        weight_decay=trial.suggest_float("weight_decay", 3e-5, 2e-4, log=True),
         standardize=standardize,
     )
     model = IrrMLPClassifier(cfg, pos_weight=pos_weight)
@@ -110,8 +112,9 @@ def _monitor_and_mode(objective: str) -> tuple[str, str]:
 
 def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: str) -> float:
     seed_everything(args.seed, workers=True)
-
-    batch_size = trial.suggest_categorical("batch_size", [256, 512, 1024, 2048])
+    # using 1024 based on previous experiments
+    batch_size = 1024
+    #batch_size = trial.suggest_categorical("batch_size", [256, 512, 1024, 2048])
 
     dm = make_datamodule(
         data_glob=args.data_glob,
@@ -166,7 +169,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Optuna hyperparameter tuning for IrrMLPClassifier.")
     p.add_argument("--data-glob", required=True, help='e.g. "raw_data/*.csv"')
     p.add_argument("--val-ratio", type=float, default=0.2)
-    p.add_argument("--seed", type=int, default=88)
+    p.add_argument("--seed", type=int, default=92)
     p.add_argument("--max-epochs", type=int, default=40)
     p.add_argument("--patience", type=int, default=7)
     p.add_argument("--n-trials", type=int, default=40)
