@@ -1,4 +1,6 @@
 # irr/cli/predict.py
+# The prediction notebook can also be used instead of this CLI script.
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +14,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from irr.models.mlp_classifier import IrrMLPClassifier, ModelConfig
 from irr.constants import FEATURES
+
 
 
 def pick_device(cli_device: str | None) -> str:
@@ -59,7 +62,7 @@ def predict_df(
     dev = pick_device(device)
     model.to(dev)
 
-    # Build DataLoader
+    # Build dataLoader
     X = torch.tensor(df[FEATURES].values, dtype=torch.float32)
     ds = TensorDataset(X)
     pin = (dev == "cuda")  # pin_memory helps only on CUDA

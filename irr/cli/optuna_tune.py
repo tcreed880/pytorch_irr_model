@@ -24,24 +24,23 @@ class LightningOptunaPruner(Callback):
         metric = trainer.callback_metrics.get(self.monitor)
         if metric is None:
             return
-        # metric is a torch tensor; convert to float
         value = float(metric.detach().cpu().item())
         step = trainer.current_epoch
         self.trial.report(value, step)
         if self.trial.should_prune():
             raise optuna.exceptions.TrialPruned()    
 
-# ---------------- device/precision ----------------
+# device choosing, using mps on my local mac but cuda left in if available
 
 def pick_accel_and_precision() -> tuple[str, str]:
     if torch.cuda.is_available():
-        return "gpu", "16-mixed"   # CUDA AMP
+        return "gpu", "16-mixed"  
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-        return "mps", "32-true"    # MPS: stick to fp32
+        return "mps", "32-true"    
     return "cpu", "32-true"
 
 
-# ---------------- data helpers ----------------
+# data helpers
 
 def make_datamodule(
     data_glob: str,
@@ -74,31 +73,28 @@ def compute_pos_weight_from_dm(dm: IrrDataModule) -> tuple[torch.Tensor | None, 
     return torch.tensor([ratio], dtype=torch.float32), pos / (pos + neg)
 
 
-# ---------------- model factory ----------------
+# model builder
 
 def build_model(trial: optuna.Trial, in_dim: int, pos_weight: torch.Tensor | None, standardize: bool) -> IrrMLPClassifier:
     cfg = ModelConfig(
         in_dim=in_dim,
-        # removed depth, hidden size, using defaults 2 and 256
-        depth=2,
-        hidden=256,
-        dropout=trial.suggest_float("dropout", 0.01, 0.06),
-        # removed silu and relu
-        act="gelu",
-        lr=trial.suggest_float("lr", 2e-4, 6e-4, log=True),
-        weight_decay=trial.suggest_float("weight_decay", 3e-5, 2e-4, log=True),
+        hidden=trial.suggest_categorical("hidden", [128, 256, 512]),
+        depth=trial.suggest_int("depth", 1, 4),
+        dropout=trial.suggest_float("dropout", 0.0, 0.5),
+        act=trial.suggest_categorical("act", ["silu", "gelu", "relu"]),
+        lr=trial.suggest_float("lr", 3e-5, 3e-3, log=True),
+        weight_decay=trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
         standardize=standardize,
     )
     model = IrrMLPClassifier(cfg, pos_weight=pos_weight)
-    # keep standardizer no-op unless you flip --standardize
+    # keep standardizer no-op since featrues are already normalized
     with torch.no_grad():
         model.x_mean.zero_()
         model.x_std.fill_(1.0)
     return model
 
 
-# ---------------- objective ----------------
-
+# define model objective
 def _monitor_and_mode(objective: str) -> tuple[str, str]:
     """Return (monitor_key, mode) given objective name."""
     obj = objective.lower()
@@ -163,7 +159,7 @@ def objective(trial: optuna.Trial, args: argparse.Namespace, accel: str, prec: s
     return float(metric.cpu().item()) if metric is not None else float("nan")
 
 
-# ---------------- CLI ----------------
+# CLI
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Optuna hyperparameter tuning for IrrMLPClassifier.")

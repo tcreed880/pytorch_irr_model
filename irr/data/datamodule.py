@@ -15,19 +15,14 @@ from irr.constants import FEATURES, LABEL_COL
 from irr.data.io import load_csvs
 from irr.data.splits import stratified_split_idx  # fallback split
 
-# --- optional deps (guarded) ---
+# GroupShuffleSplit is optional, only used if grouping request
 try:
     from sklearn.model_selection import GroupShuffleSplit  # type: ignore
 except Exception:
     GroupShuffleSplit = None  # type: ignore
 
-# H3 is optional; we support both v3 and v4 function names.
-try:
-    import h3  # type: ignore
-    _HAS_H3 = True
-except Exception:
-    h3 = None  # type: ignore
-    _HAS_H3 = False
+import h3  
+
 
 
 def _normalize_states(states: Optional[Iterable[str]]) -> Optional[List[str]]:
@@ -36,17 +31,8 @@ def _normalize_states(states: Optional[Iterable[str]]) -> Optional[List[str]]:
     return [str(s).strip().upper() for s in states]
 
 
-def _latlon_to_h3(lat: float, lon: float, res: int) -> str:
-    """
-    Wrapper that supports both h3 v4 (latlng_to_cell) and v3 (geo_to_h3).
-    """
-    if not _HAS_H3:
-        raise ImportError("To use H3 grouping, install 'h3' (e.g., pip install h3).")
-    if hasattr(h3, "latlng_to_cell"):  # v4
-        return h3.latlng_to_cell(lat, lon, res)  # type: ignore[attr-defined]
-    if hasattr(h3, "geo_to_h3"):       # v3
-        return h3.geo_to_h3(lat, lon, res)      # type: ignore[attr-defined]
-    raise RuntimeError("Unsupported h3 version: no latlng_to_cell / geo_to_h3 found.")
+def _latlon_to_h3(lat: float, lon: float, res: int) -> int:
+    return h3.latlng_to_cell(lat, lon, res)
 
 
 class IrrDataModule(pl.LightningDataModule):
@@ -54,10 +40,10 @@ class IrrDataModule(pl.LightningDataModule):
     Lightning DataModule for tabular CSV data.
 
     - Loads with irr.data.io.load_csvs(glob)
-    - Optional state filtering (include_states=['OR','ID',...])
-    - Optional group-aware train/val split (H3 like 'h3_r7', 'county_fips', or '.geo')
+    - Optional state filtering 
+    - Optional group-aware train/val split (like 'h3_r7' or 'county_fips')
     - Falls back to label-stratified split when grouping not available
-    - Exposes train/val DataLoaders
+    - Exposes train/val dataLoaders
     """
 
     def __init__(
@@ -98,12 +84,10 @@ class IrrDataModule(pl.LightningDataModule):
         self.x_mean: torch.Tensor
         self.x_std: torch.Tensor
 
-    # ---------- grouping helpers ----------
+    # grouping helpers
     @staticmethod
     def _geo_to_h3(series: pd.Series, res: int) -> pd.Series:
-        """
-        Convert GeoJSON point strings in '.geo' to H3 cell ids at resolution `res`.
-        """
+        # convert GeoJSON point strings in '.geo' to H3 cell ids at resolution `res`.
         def to_h3(s: str) -> str:
             c = json.loads(s)["coordinates"]
             lon, lat = float(c[0]), float(c[1])
@@ -111,13 +95,6 @@ class IrrDataModule(pl.LightningDataModule):
         return series.astype(str).apply(to_h3)
 
     def _make_groups(self, df: pd.DataFrame) -> Optional[np.ndarray]:
-        """
-        Return group ids (np.ndarray[str]) given group_col:
-          - 'h3_r{res}' uses H3 on '.geo'
-          - '.geo' uses the raw geo string
-          - any existing dataframe column name
-          - None → no grouping
-        """
         if not self.group_col or str(self.group_col).lower() == "none":
             return None
 
@@ -137,16 +114,12 @@ class IrrDataModule(pl.LightningDataModule):
         if gc in df.columns:
             return df[gc].astype(str).to_numpy()
 
-        # unknown → no grouping
         return None
 
-    # ---------- diagnostics ----------
+    # diagnostics
     @staticmethod
     def _print_group_stats(groups: Optional[np.ndarray], label: Optional[str] = None) -> None:
-        """
-        Light debug: print number of unique groups if provided.
-        Accepts Optional to satisfy type checkers and avoid len(None).
-        """
+        # Print number of unique groups if provided.
         if groups is None:
             if label:
                 print(f"[Groups:{label}] no grouping")
@@ -158,9 +131,7 @@ class IrrDataModule(pl.LightningDataModule):
             print(f"[Groups] unique={n_unique:,}")
 
     def assert_no_group_leakage(self, group_col: Optional[str] = None) -> None:
-        """
-        Ensure no group overlaps between train and val (only if groups are available).
-        """
+        # Ensure no group overlaps between train and val
         if self.df is None or self.train_idx is None or self.val_idx is None:
             raise RuntimeError("Call setup() before assert_no_group_leakage().")
 
@@ -178,7 +149,7 @@ class IrrDataModule(pl.LightningDataModule):
             examples = list(overlap)[:3]
             raise AssertionError(f"Found {len(overlap)} overlapping groups. Examples: {examples}")
 
-    # ---------- Lightning hooks ----------
+    # Lightning hooks
     def setup(self, stage: Optional[str] = None) -> None:
         # Load data
         df = load_csvs(self.data_glob)
@@ -210,7 +181,7 @@ class IrrDataModule(pl.LightningDataModule):
             split_desc = "predefined indices"
         else:
             groups = self._make_groups(df)
-            # Pylance-safe guard: only call GroupShuffleSplit if imported
+            # only call GroupShuffleSplit if imported
             if (groups is not None) and (GroupShuffleSplit is not None):
                 gss = GroupShuffleSplit(n_splits=1, test_size=self.val_ratio, random_state=self.seed)
                 all_idx = np.arange(len(df))
@@ -231,11 +202,11 @@ class IrrDataModule(pl.LightningDataModule):
         self.X_train, self.y_train = X[tr_idx], y[tr_idx]
         self.X_val, self.y_val = X[va_idx], y[va_idx]
 
-        # Standardization stats (kept even if your embeddings are unit norm)
+        # Standardization stats, kept even though embeddings are unit norm
         self.x_mean = self.X_train.mean(dim=0)
         self.x_std = self.X_train.std(dim=0).clamp_min(1e-8)
 
-        # Optional: quick diagnostics
+        # Optional quick diagnostics
         if self.debug:
             self._print_group_stats(self._make_groups(df), label="full")
             print(f"[Targets] train pos={int((self.y_train==1).sum()):,} / {len(self.y_train):,} | "
@@ -244,7 +215,7 @@ class IrrDataModule(pl.LightningDataModule):
     def _make_loader(self, X: torch.Tensor, y: torch.Tensor, shuffle: bool) -> DataLoader:
         ds = TensorDataset(X, y)
         persistent = self.num_workers > 0
-        # pin_memory is only useful for CUDA; keep False for portability (OK for MPS/CPU)
+        # pin_memory is only useful for CUDA
         return DataLoader(
             ds,
             batch_size=self.batch_size,
@@ -260,7 +231,7 @@ class IrrDataModule(pl.LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         return self._make_loader(self.X_val, self.y_val, shuffle=False)
 
-    # convenience for CV: load DF without running setup
+    # convenience for CV, loads df without running setup
     @staticmethod
     def load_all_df(data_glob: str) -> pd.DataFrame:
         return load_csvs(data_glob)

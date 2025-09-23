@@ -1,0 +1,34 @@
+act: relu
+batch_size: 1024
+calibrate_on_val: true
+cfg: !!python/object:irr.models.mlp_classifier.ModelConfig
+  act: relu
+  calibrate_on_val: true
+  depth: 4
+  dropout: 0.0937
+  hidden: 512
+  in_dim: 64
+  lr: 0.0005786
+  standardize: false
+  weight_decay: 8.964e-05
+data_glob: raw_data/*.csv
+depth: 4
+dropout: 0.0937
+group_col: h3_r5
+hidden: 512
+include_states:
+- MT
+- OR
+- ID
+lr: 0.0005786
+max_epochs: 120
+min_delta: 0.0001
+monitor: val_auprc
+patience: 20
+pos_weight: 21.79888153076172
+seed: 89
+standardize: false
+train_neg: 253303
+train_pos: 11620
+val_ratio: 0.1
+weight_decay: 8.964e-05

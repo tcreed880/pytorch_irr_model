@@ -3,7 +3,7 @@
 import argparse
 import ee
 
-# -------------- Defaults --------------
+# Configure defaults and earth engine project info
 PROJECT_ID = "water-model"
 DEFAULT_YEARS = [2018, 2019, 2020, 2021, 2022]
 DEFAULT_STATES = ["WA", "OR", "ID", "MT"]
@@ -12,7 +12,7 @@ DEFAULT_SEED = 90
 DEFAULT_DESC_PREFIX = "alphaearth_irrmapper_training"
 DEFAULT_DRIVE_FOLDER = "ee_exports"
 
-# -------------- Earth Engine init --------------
+# Earth Engine init
 def init_ee():
     """Initialize Earth Engine; authenticate only if needed."""
     try:
@@ -21,7 +21,7 @@ def init_ee():
         ee.Authenticate()
         ee.Initialize(project=PROJECT_ID)
 
-# -------------- EE helpers --------------
+# EE helpers 
 def get_states_fc():
     return ee.FeatureCollection("TIGER/2018/States")
 
@@ -31,12 +31,11 @@ def state_geom_by_abbr(abbr: str) -> ee.Geometry:
 
 def state_fips_by_abbr(abbr: str) -> str:
     f = get_states_fc().filter(ee.Filter.eq("STUSPS", abbr)).first()
-    return ee.String(ee.Feature(f).get("STATEFP")).getInfo()  # client-side (once per state)
+    return ee.String(ee.Feature(f).get("STATEFP")).getInfo()  
 
 def counties_for_state(abbr: str) -> ee.FeatureCollection:
     states = get_states_fc()
     st = states.filter(ee.Filter.eq("STUSPS", abbr)).first()
-    # server-side get of STATEFP (no .getInfo)
     st_fp = ee.Feature(st).get("STATEFP")
     counties = ee.FeatureCollection("TIGER/2018/Counties")
     return counties.filter(ee.Filter.eq("STATEFP", st_fp))
@@ -81,7 +80,7 @@ def attach_county_fips(samples_fc: ee.FeatureCollection, counties: ee.FeatureCol
         ))
     return ee.FeatureCollection(joined).map(_pull)
 
-# -------------- Main exporter --------------
+# Main exporter
 def export_random_cropland_for_state_year(
     abbr: str,
     year: int,
@@ -98,21 +97,21 @@ def export_random_cropland_for_state_year(
     debug: bool = False,
 ):
     """
-    Export a CSV of cropland points for a given state-year with AlphaEarth features + IrrMapper label.
+    Exports a CSV of cropland points for a given state-year with AlphaEarth features + IrrMapper label.
 
     Args:
-        abbr: state USPS code (e.g., "WA").
-        year: e.g., 2018..2022.
+        abbr: state USPS code like "WA".
+        year: 2018, 2019, etc.
         points: total number of points to sample.
         seed: sampling seed.
         desc_prefix: export description prefix.
         drive_folder: Google Drive folder name.
         balance: "random" (unbalanced) or "stratified" (by IrrMapper label).
-        pos_frac: target positive fraction when balance="stratified" (0..1).
+        pos_frac: target positive fraction when balance="stratified".
         exclude_near_state: if provided, carve out a buffer around this state from the AOI (reduce proximity leakage).
         buffer_m: width (meters) of the exclusion buffer.
-        force_mask_2021: if True, use CDL 2021 cropland mask for all years (stable mask).
-        debug: print small diagnostics (label histogram).
+        force_mask_2021: if True, use CDL 2021 cropland mask for all years.
+        debug: print small diagnostics (label histogram), makes export way slower
     """
     # AOI (optionally remove a border buffer next to another state)
     aoi = state_geom_by_abbr(abbr)
@@ -180,7 +179,7 @@ def export_random_cropland_for_state_year(
     samples = samples.map(lambda f: f.set({"year": year, "state": abbr}))
     samples = attach_county_fips(samples, counties)
 
-    # Optional quick histogram
+    # Optional quick histogram, adds time to export
     if debug:
         try:
             hist = samples.aggregate_histogram("label").getInfo()
@@ -199,7 +198,7 @@ def export_random_cropland_for_state_year(
     task.start()
     print(f"Started export: {desc}")
 
-# -------------- CLI --------------
+# CLI 
 def build_argparser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Export AlphaEarth embeddings + IrrMapper labels at random cropland points per state/year."

@@ -18,7 +18,7 @@ from torchmetrics.functional.classification import (
 import matplotlib.pyplot as plt
 
 
-# ---------- Blocks ----------
+# Blocks 
 
 class ResidualMLPBlock(nn.Module):
     """Linear(d,d) -> LayerNorm -> act -> Dropout, with residual skip."""
@@ -53,7 +53,7 @@ class MLPHead(nn.Module):
         return self.layers(x).squeeze(1)
 
 
-# ---------- LightningModule ----------
+# LightningModule 
 
 @dataclass
 class ModelConfig:
@@ -69,14 +69,6 @@ class ModelConfig:
 
 
 class IrrMLPClassifier(pl.LightningModule):
-    """
-    Binary classifier:
-      - optional standardization: x <- (x - mean) / std
-      - MLPHead backbone -> 1 logit
-      - BCEWithLogitsLoss (supports pos_weight)
-      - Logs AUROC/AUPRC (epoch-level) + confusion matrix @ tuned threshold
-      - (optional) Fits temperature & bias on validation to calibrate probabilities
-    """
     def __init__(self, cfg: ModelConfig, pos_weight: Optional[torch.Tensor] = None):
         super().__init__()
         self.save_hyperparameters(ignore=["pos_weight"])
@@ -92,7 +84,7 @@ class IrrMLPClassifier(pl.LightningModule):
 
         self.loss = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-        # metrics (epoch-level only for stability)
+        # metrics at epoch-level
         self.train_auroc = BinaryAUROC()
         self.train_auprc = BinaryAveragePrecision()
         self.val_auroc   = BinaryAUROC()
@@ -102,20 +94,19 @@ class IrrMLPClassifier(pl.LightningModule):
         self.register_buffer("x_mean", torch.zeros(cfg.in_dim))
         self.register_buffer("x_std", torch.ones(cfg.in_dim))
 
-        # calibration buffers (round-trip in checkpoints)
+        # calibration buffers for probability scaling at prediction
         self.register_buffer("calib_T", torch.tensor(1.0))                # T=1 → no temp scaling
         self.register_buffer("calib_b", torch.tensor(0.0))                # b=0 → no bias shift
         self.register_buffer("use_calibration", torch.tensor(0, dtype=torch.uint8))
         self.register_buffer("best_threshold", torch.tensor(0.50))
 
-        # internal holders for per-epoch val aggregation / plot
+        # holders for per-epoch val aggregation
         self._val_logits: list[torch.Tensor] = []
         self._val_targets: list[torch.Tensor] = []
         self._last_val_cm: Optional[torch.Tensor] = None
 
-    # ----- utilities -----
+    # utilities
     def set_standardizer(self, mean: torch.Tensor, std: torch.Tensor) -> None:
-        """Copy mean/std into buffers; guards against zeros in std."""
         std = std.clone()
         std[std == 0] = 1.0
         self.x_mean.copy_(mean)
@@ -133,7 +124,6 @@ class IrrMLPClassifier(pl.LightningModule):
 
     @torch.no_grad()
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        """Calibrated probabilities for inference."""
         logits = self(x)
         z = self._apply_calibration(logits)
         return torch.sigmoid(z)
@@ -165,7 +155,7 @@ class IrrMLPClassifier(pl.LightningModule):
             tb.add_figure(tag, fig, global_step=step)
         plt.close(fig)
 
-    # ----- calibration fitter (INSIDE the class) -----
+    # calibration fitter
     def _fit_temp_bias(self, logits: torch.Tensor, targets: torch.Tensor, max_iter: int = 50):
         """
         Fit temperature (T>0) and bias (b) by minimizing unweighted BCE on validation.
@@ -193,7 +183,7 @@ class IrrMLPClassifier(pl.LightningModule):
         b = b.detach()
         return T, b
 
-    # ----- train/val -----
+    # train/val steps
     def _step(self, batch, stage: str):
         x, y = batch
         logits = self(x)
@@ -203,7 +193,7 @@ class IrrMLPClassifier(pl.LightningModule):
 
     def training_step(self, batch, _):
         loss, logits, y = self._step(batch, "train")
-        # AUROC/AUPRC consume raw scores (logits)
+        # AUROC/AUPRC take raw scores (logits)
         self.train_auroc.update(logits, y.int())
         self.train_auprc.update(logits, y.int())
         return loss
@@ -241,7 +231,7 @@ class IrrMLPClassifier(pl.LightningModule):
         logits  = torch.cat(self._val_logits,  dim=0)
         targets = torch.cat(self._val_targets, dim=0)
 
-        # raw (uncalibrated) epoch BCE
+        # raw uncalibrated epoch BCE
         val_bce_epoch = F.binary_cross_entropy_with_logits(logits, targets.float())
         self.log("val_bce_epoch", val_bce_epoch, on_step=False, on_epoch=True)
 
@@ -282,7 +272,7 @@ class IrrMLPClassifier(pl.LightningModule):
             tag = "final/val_confusion_matrix_cal" if bool(self.use_calibration.item()) else "final/val_confusion_matrix"
             self._plot_and_log_cm(cm, tag=tag, step=self.current_epoch)
 
-    # ----- optimizers & schedulers -----
+    # optimizers & schedulers
     def configure_optimizers(self):
         opt = torch.optim.AdamW(self.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
         # Cosine across epochs (Lightning sets max_epochs on the trainer)

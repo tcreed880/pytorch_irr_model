@@ -1,5 +1,6 @@
 # irr/data/splits.py
-"""Utilities for creating train/val splits for binary classification."""
+# Utilities for creating train/val splits for binary classification.
+# Return (train_idx, val_idx) for binary labels y in {0,1} with a class-stratified split.
 
 from __future__ import annotations
 import numpy as np
@@ -8,27 +9,6 @@ __all__ = ["stratified_split_idx"]
 
 
 def stratified_split_idx(y: np.ndarray, val_ratio: float, seed: int = 88) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Return (train_idx, val_idx) for binary labels y in {0,1} with a class-stratified split.
-    If a class is missing (or extremely small), fall back to a random split.
-
-    Notes:
-    - Ensures no overlap between train/val.
-    - Tries to keep at least one sample per class in both splits when feasible.
-
-    Parameters
-    ----------
-    y : array-like of shape (n_samples,)
-        Binary labels {0,1}.
-    val_ratio : float
-        Fraction of samples assigned to validation (0 < val_ratio < 1).
-    seed : int
-        RNG seed.
-
-    Returns
-    -------
-    (train_idx, val_idx) : tuple of np.ndarray[int64]
-    """
     y = np.asarray(y).astype(np.int64)
     if not (0.0 < val_ratio < 1.0):
         raise ValueError(f"val_ratio must be in (0,1); got {val_ratio}")

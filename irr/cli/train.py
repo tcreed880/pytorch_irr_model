@@ -9,7 +9,7 @@ from irr.configs import TrainConfig
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train MLP classifier on AE/IRR CSV data.")
 
-    # Data / splitting
+    # Data and split controls
     p.add_argument("--data-glob", required=True, help='Glob for CSVs, e.g. "raw_data/*.csv"')
     p.add_argument("--batch-size", type=int, default=512)
     p.add_argument("--val-ratio", type=float, default=0.2)
@@ -28,13 +28,13 @@ def parse_args() -> argparse.Namespace:
              "Use 'none' for label-stratified split.",
     )
 
-    # Training control
+    # Training controls
     p.add_argument("--monitor", type=str, default="val_auprc")
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--min-delta", type=float, default=1e-5)
     p.add_argument("--max-epochs", type=int, default=40)
 
-    # Model hyperparams (convenience fields; train.py will build ModelConfig)
+    # Model hyperparameters
     p.add_argument("--hidden", type=int, default=1024)
     p.add_argument("--depth", type=int, default=2)
     p.add_argument("--dropout", type=float, default=0.10)
@@ -42,7 +42,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight-decay", type=float, default=1e-4)
     p.add_argument("--standardize", action="store_true", help="Apply (x-mean)/std inside the model.")
-
+    p.add_argument("--calibrate-on-val", action="store_true",
+                   help="Fit temperature+bias on the validation split each epoch and save best_threshold.")
     return p.parse_args()
 
 
@@ -70,6 +71,7 @@ def main() -> None:
         lr=a.lr,
         weight_decay=a.weight_decay,
         standardize=a.standardize,
+        calibrate_on_val=a.calibrate_on_val
     )
 
     info = run_train(cfg)

@@ -27,3 +27,4 @@ class TrainConfig:
     lr: float = 1e-3
     weight_decay: float = 1e-4
     standardize: bool = False
+    calibrate_on_val: bool = False

@@ -11,7 +11,7 @@ from irr.models.mlp_classifier import ModelConfig
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="K-fold CV for IrrMLPClassifier.")
 
-    # Data / splitting
+    # Data and split controls
     p.add_argument("--data-glob", required=True, help='Glob for CSVs, e.g. "raw_data/*.csv"')
     p.add_argument("--k", type=int, default=5, help="Number of folds")
     p.add_argument("--batch-size", type=int, default=512)
@@ -25,12 +25,12 @@ def parse_args() -> argparse.Namespace:
         help="Grouping for folds: 'county_fips', '.geo', or 'h3_r{res}'. Use 'none' for label-stratified."
     )
 
-    # Training control
+    # Training controls
     p.add_argument("--monitor", type=str, default="val_auprc")
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--max-epochs", type=int, default=40)
 
-    # Model hyperparams
+    # Model hyperparameters
     p.add_argument("--hidden", type=int, default=256)
     p.add_argument("--depth", type=int, default=2)
     p.add_argument("--dropout", type=float, default=0.10)

@@ -94,3 +94,54 @@ poetry run python -m irr.cli.predict \
   --batch-size 4096 \
   --threshold 0.5
 ```
+
+Current best trials:
+
+AUPRC = .942
+dropout: 0.05109213013075128, 
+lr: 0.0002427683011080714, 
+weight_decay: 9.207625160718992e-05
+depth: 2,
+hidden: 256,
+act: "gelu",
+batch: 1024,
+seed: 92
+
+AUPRC = .942
+dropout: 0.047412559728694445
+lr: 0.00022263446076658256
+weight_decay: 6.72396788677713e-05
+depth: 2,
+hidden: 256,
+act: "gelu",
+batch: 1024,
+seed: 92
+
+AUPRC = .942
+dropout: 0.04391027775484241
+lr: 0.00022601786977083916
+weight_decay: 3.8055065486013694e-05
+depth: 2,
+hidden: 256,
+act: "gelu",
+batch: 1024,
+seed: 90
+
+
+AUPRC = 0.946
+dropout: 0.09368834312423434
+weight_decay 8.964235063706534e-05
+lr: 0.0005786421152607154
+batch_size: 1024
+hidden: 512
+depth: 4
+act: relu
+
+AUPRC = 0.946
+batch_size: 256
+hidden: 128
+depth: 2
+dropout: 0.029987275977251975
+act: gelu
+lr: 0.0003443859657010577
+weight_decay: 0.0003650374536559061
