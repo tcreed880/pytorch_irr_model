@@ -1,0 +1,33 @@
+act: silu
+batch_size: 512
+cfg: !!python/object:irr.models.mlp_classifier.ModelConfig
+  act: silu
+  depth: 2
+  dropout: 0.02
+  hidden: 256
+  in_dim: 64
+  lr: 0.001
+  standardize: false
+  weight_decay: 3.7e-05
+data_glob: raw_data/*.csv
+depth: 2
+dropout: 0.02
+group_col: h3_r5
+hidden: 256
+include_states:
+- WA
+- MT
+- OR
+- ID
+lr: 0.001
+max_epochs: 120
+min_delta: 0.0001
+monitor: train_bce
+patience: 10
+pos_weight: 20.043241500854492
+seed: 88
+standardize: false
+train_neg: 297121
+train_pos: 14824
+val_ratio: 0.2
+weight_decay: 3.7e-05

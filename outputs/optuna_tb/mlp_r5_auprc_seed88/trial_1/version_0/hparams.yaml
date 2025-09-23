@@ -1,0 +1,10 @@
+cfg: !!python/object:irr.models.mlp_classifier.ModelConfig
+  act: relu
+  calibrate_on_val: false
+  depth: 2
+  dropout: 0.3230052298761425
+  hidden: 512
+  in_dim: 64
+  lr: 8.565134649237526e-05
+  standardize: false
+  weight_decay: 0.007332125068050222

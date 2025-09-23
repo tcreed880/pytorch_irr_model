@@ -57,7 +57,8 @@ raw_data/             # your big/raw inputs live here; keep them out of git
 # datasets/           # optional, if you have an external datasets dir
 
 # --- Training outputs / artifacts ---
-outputs/              # checkpoints, metrics, predictions, plots, etc.
+outputs/*              # checkpoints, metrics, predictions, plots, etc.
+!outputs/.gitkeep
 notebooks/predictions/*.csv
 lightning_logs/
 tb_logs/
