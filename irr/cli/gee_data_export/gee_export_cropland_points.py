@@ -1,8 +1,8 @@
 # pyright: reportPrivateImportUsage=false
-# ee_export_cropland_points.py
+# gee_export_cropland_points.py
 import argparse
 import ee
-
+from typing import Optional
 # Configure defaults and earth engine project info
 PROJECT_ID = "water-model"
 DEFAULT_YEARS = [2018, 2019, 2020, 2021, 2022]
@@ -29,7 +29,7 @@ def state_geom_by_abbr(abbr: str) -> ee.Geometry:
     f = get_states_fc().filter(ee.Filter.eq("STUSPS", abbr)).first()
     return ee.Feature(f).geometry()
 
-def state_fips_by_abbr(abbr: str) -> str:
+def state_fips_by_abbr(abbr: str) -> Optional[str]:
     f = get_states_fc().filter(ee.Filter.eq("STUSPS", abbr)).first()
     return ee.String(ee.Feature(f).get("STATEFP")).getInfo()  
 

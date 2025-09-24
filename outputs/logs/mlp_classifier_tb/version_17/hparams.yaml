@@ -1,0 +1,34 @@
+act: silu
+batch_size: 512
+calibrate_on_val: false
+cfg: !!python/object:irr.models.mlp_classifier.ModelConfig
+  act: silu
+  calibrate_on_val: false
+  depth: 2
+  dropout: 0.1
+  hidden: 256
+  in_dim: 64
+  lr: 0.001
+  standardize: false
+  weight_decay: 0.0001
+data_glob: raw_data/*.csv
+depth: 2
+dropout: 0.1
+group_col: h3_r5
+hidden: 256
+include_states:
+- MT
+- OR
+- ID
+lr: 0.001
+max_epochs: 40
+min_delta: 1.0e-05
+monitor: val_auprc
+patience: 10
+pos_weight: 21.46342658996582
+seed: 88
+standardize: false
+train_neg: 224765
+train_pos: 10472
+val_ratio: 0.2
+weight_decay: 0.0001

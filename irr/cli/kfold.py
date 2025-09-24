@@ -5,7 +5,6 @@ import argparse
 
 from irr.training.cv import run_kfold
 from irr.configs import TrainConfig
-from irr.models.mlp_classifier import ModelConfig
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,8 +45,16 @@ def main() -> None:
     a = parse_args()
     group_col = None if a.group_col and a.group_col.lower() == "none" else a.group_col
 
-    # Build nested model config
-    model_cfg = ModelConfig(
+    cfg = TrainConfig(
+        data_glob=a.data_glob,
+        batch_size=a.batch_size,
+        seed=a.seed,
+        monitor=a.monitor,
+        patience=a.patience,
+        max_epochs=a.max_epochs,
+        group_col=group_col,
+        include_states=a.include_states,
+
         hidden=a.hidden,
         depth=a.depth,
         dropout=a.dropout,
@@ -55,21 +62,6 @@ def main() -> None:
         lr=a.lr,
         weight_decay=a.weight_decay,
         standardize=a.standardize,
-    )
-
-    # Train config used by run_kfold (cv runner passes explicit indices per fold)
-    cfg = TrainConfig(
-        data_glob=a.data_glob,
-        batch_size=a.batch_size,
-        # val_ratio is unused in CV (splits are passed explicitly)
-        seed=a.seed,
-        monitor=a.monitor,
-        patience=a.patience,
-        max_epochs=a.max_epochs,
-        model=model_cfg,
-        group_col=group_col,
-        # optional state filter for CV
-        include_states=a.include_states,
     )
 
     folds_df, summary = run_kfold(cfg, k=a.k)
