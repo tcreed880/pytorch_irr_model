@@ -2,8 +2,8 @@ Classify irrigated vs. non-irrigated cropland using Google’s AlphaEarth embedd
 
 Example run shown at bottom.
 
-### Setup
-#### pytorch-irr-model
+## Setup
+
 ```bash
 git clone https://github.com/tcreed880/pytorch_irr_model.git
 cd pytorch_irr_model
@@ -43,24 +43,23 @@ all cropland pixels, chunked per county (large export)
 ```bash
 poetry run python irr/cli/gee_python_api.py --mode all --years 2019 2020 2021
 ```
-Exports go a Google Drive folder configured in the script. Download CSVs locally into raw_data/
+Exports go a Google Drive folder configured in the script. Download CSVs locally into raw_data/  
 Columns should include FEATURES (64 AlphaEarth embeddings) and LABEL_COL (0 or 1, based on IrrMapper v1.2), and metadata like county_name, state, .geo.
 
 ### Model description
 irr/models/mlp_classifier.py
-MLP with residual blocks at width {hidden} ({depth} blocks), final 1-logit head.
-
-Loss: BCEWithLogitsLoss, supports {pos_weight} from training for imbalanced classes.
-Metrics: AUROC, AUPRC (TorchMetrics done at epoch level)
-Optimizer/scheduler: AdamW + CosineAnnealingLR (configured in configure_optimizers)
-Calibration (optional): temperature + bias on validation
-H3 group splits to avoid spatial leakage (set via --group-col h3_r{res})
+MLP with residual blocks at width {hidden} ({depth} blocks), final 1-logit head  
+Loss: BCEWithLogitsLoss, supports {pos_weight} from training for imbalanced classes  
+Metrics: AUROC, AUPRC (TorchMetrics done at epoch level)  
+Optimizer/scheduler: AdamW + CosineAnnealingLR (configured in configure_optimizers)  
+Calibration (optional): temperature + bias on validation  
+H3 group splits to avoid spatial leakage (set via --group-col h3_r{res})  
 
 Inputs: for AlphaEarth unit-norm embeddings, the model’s standardizer is set to a no-op (mean=0, std=1) in run_train.
 
 
 
-### Training
+## Training
 Supports H3 group-aware splits to avoid spatial leakage and standard label-stratified splits. H3 builds hex ids from .geo at the requested resolution (r5, r6, etc.) and enforces no hex overlap between train/val.
 
 #### K-fold cross-validation method:
@@ -98,8 +97,8 @@ poetry run python -m irr.cli.train \
 ```
 
 ### TensorBoard logging
-TensorBoard events: outputs/logs/mlp_classifier_tb/version_*
-CSV logs: outputs/logs/mlp_classifier/version_*
+TensorBoard events: outputs/logs/mlp_classifier_tb/version_*  
+CSV logs: outputs/logs/mlp_classifier/version_*  
 Start Tensorboard:
 ```bash
 poetry run tensorboard --logdir outputs/logs/mlp_classifier_tb --port 6006
@@ -139,7 +138,7 @@ At prediction/inference model.predict_proba(x) applies T,b if use_calibration is
 
 The model can learn a temperature (T) and bias (b) on the validation set to make probabilities better calibrated. Then a working threshold is chosen (default: F1-optimal on the calibrated curve) and stored in the checkpoint.
 
-### Prediction on new data using best checkpoint model
+## Prediction on new data using best checkpoint model
 ```bash
 poetry run python -m irr.cli.predict \
   --ckpt "outputs/logs/mlp_classifier/version_20/checkpoints/best.ckpt" \
@@ -148,21 +147,21 @@ poetry run python -m irr.cli.predict \
   --batch-size 1028 \
   --threshold 0.5
 ```
-### Notebooks
+## Notebooks
 
-notebooks/01_explore_and_qc.ipynb – quick data checks, label distributions, simple feature–label correlations, and sanity plots.
+01_explore_and_qc.ipynb – quick data checks, label distributions, simple feature–label correlations, and sanity plots.
 
-notebooks/02_train_and_calibrate.ipynb – trains with your chosen hyperparameters, logs to TensorBoard, fits (T,b), and records the threshold.
+02_train_and_calibrate.ipynb – trains with your chosen hyperparameters, logs to TensorBoard, fits (T,b), and records the threshold.
 
-notebooks/03_predict_and_metrics.ipynb – loads a checkpoint, applies calibration, computes AUROC/AUPRC if labels are present, finds the best-F1 threshold, plots CM/ROC/PR, and writes a predictions CSV.
+03_predict_and_metrics.ipynb – loads a checkpoint, applies calibration, computes AUROC/AUPRC if labels are present, finds the best-F1 threshold, plots CM/ROC/PR, and writes a predictions CSV.
 
 
-### Outputs
+## Outputs
 
-Training logs/checkpoints live under outputs/ and are git-ignored by default (see .gitignore).
-Predictions from notebooks save to notebooks/predictions/*.csv (also ignored).
+Training logs/checkpoints live under outputs/ and are git-ignored by default (see .gitignore).  
+Predictions from notebooks save to notebooks/predictions/*.csv (also ignored).  
 
-### Example Run
+## Example Run
 #### Predicting WA cropland irrigation using MT+OR+ID training data
 
 Training/val data export:
@@ -204,8 +203,8 @@ poetry run python -m irr.cli.train \
 
 Prediciton/evaluation results on WA. Metrics below are computed at the best-F1 threshold on calibrated probabilities:
 
-Confusion counts: TN=88590, FP=853, FN=908, TP=4476 (N=94,827)
-Accuracy: 0.9814
-Precision: 0.8399
-Recall: 0.8314
-F1: 0.8356
+Confusion counts: TN=88590, FP=853, FN=908, TP=4476 (N=94,827)  
+Accuracy: 0.9814  
+Precision: 0.8399  
+Recall: 0.8314  
+F1: 0.8356  
